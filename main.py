@@ -1,3 +1,4 @@
+import os
 import sys
 import cv2
 import numpy as np
@@ -22,6 +23,7 @@ class ImageLoaderApp(QWidget):
         self.roughness_img = None
         self.metallic_img = None
         self.displacement_img = None
+        self.orm_img = None
 
         layout = QVBoxLayout()
 
@@ -108,7 +110,15 @@ class ImageLoaderApp(QWidget):
         self.remove_displacement_button.clicked.connect(self.remove_displacement)
         self.remove_displacement_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         displacement_layout.addWidget(self.remove_displacement_button)
-        layout.addLayout(displacement_layout)        
+        layout.addLayout(displacement_layout)      
+
+        self.load_ORM_btn = QPushButton("Load ORM")
+        self.load_ORM_btn.clicked.connect(self.load_orm)
+        layout.addWidget(self.load_ORM_btn)
+
+        self.auto_load_btn = QPushButton("Auto Load Folder 📂")
+        self.auto_load_btn.clicked.connect(self.auto_load_from_folder)
+        layout.addWidget(self.auto_load_btn)
         
         self.generate_button = QPushButton("Generate")
         self.generate_button.clicked.connect(self.generate_output)
@@ -117,6 +127,10 @@ class ImageLoaderApp(QWidget):
         self.status_label = QLabel("Load the texture maps and click on generate")
         self.status_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.status_label)  # Adiciona o status ao layout
+
+        self.reset_button = QPushButton("Reset All 🗑️")
+        self.reset_button.clicked.connect(self.remove_all)
+        layout.addWidget(self.reset_button)
 
         self.setLayout(layout)
 
@@ -132,14 +146,17 @@ class ImageLoaderApp(QWidget):
             pil_img = Image.open(file_path).convert("RGB")
             return np.array(pil_img)
         except Exception as e:
-            print(f"Erro ao carregar imagem: {e}")
+            print(f"failed to load image: {e}")
             return None
 
    
     def load_diffuse(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Diffuse", "", self.image_formats)       
-        if file_name:
-            self.diffuse_img = self.load_image_cv_compat(file_name)
+        self.gen_albedo(file_name)
+    
+    def gen_albedo(self,file_path):
+        if file_path:
+            self.diffuse_img = self.load_image_cv_compat(file_path)
             if(self.diffuse_img is not None):
                 self.load_diffuse_btn.setText("Diffuse Loaded ✅")
                 self.load_diffuse_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
@@ -147,8 +164,11 @@ class ImageLoaderApp(QWidget):
 
     def load_ao(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open AO", "", self.image_formats)
-        if file_name:
-            self.ao_img = self.load_image_cv_compat(file_name)
+        self.gen_ao(file_name)
+
+    def gen_ao(self,file_path):
+        if file_path:
+            self.ao_img = self.load_image_cv_compat(file_path)
             if(self.ao_img is not None):
                 self.load_ao_btn.setText("AO Loaded ✅")
                 self.load_ao_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
@@ -156,8 +176,11 @@ class ImageLoaderApp(QWidget):
 
     def load_opacity(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Opacity", "", self.image_formats)
-        if file_name:
-            self.opacity_img = self.load_image_cv_compat(file_name)
+        self.gen_opacity(file_name)
+
+    def gen_opacity(self, file_path):
+        if file_path:
+            self.opacity_img = self.load_image_cv_compat(file_path)
             if(self.opacity_img is not None):
                 self.load_opacity_btn.setText("Opacity Loaded ✅")
                 self.load_opacity_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
@@ -165,8 +188,11 @@ class ImageLoaderApp(QWidget):
 
     def load_normal(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Normal", "", self.image_formats)
-        if file_name:
-            self.normal_img = self.load_image_cv_compat(file_name)
+        self.gen_normal(file_name)
+
+    def gen_normal(self,file_path):
+        if file_path:
+            self.normal_img = self.load_image_cv_compat(file_path)
             if(self.normal_img is not None):
                 self.load_normal_btn.setText("Normal Loaded ✅")
                 self.load_normal_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
@@ -174,8 +200,11 @@ class ImageLoaderApp(QWidget):
 
     def load_roughness(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Roughness", "", self.image_formats)
-        if file_name:
-            self.roughness_img = self.load_image_cv_compat(file_name)
+        self.gen_roughness(file_name)
+
+    def gen_roughness(self, file_path):
+        if file_path:
+            self.roughness_img = self.load_image_cv_compat(file_path)
             if(self.roughness_img is not None):
                 self.load_roughness_btn.setText("Roughness Loaded ✅")
                 self.load_roughness_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
@@ -183,8 +212,11 @@ class ImageLoaderApp(QWidget):
 
     def load_metallic(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Metallic", "", self.image_formats)
-        if file_name:
-            self.metallic_img = self.load_image_cv_compat(file_name)
+        self.gen_metallic(file_name)
+
+    def gen_metallic(self,file_path):
+        if file_path:
+            self.metallic_img = self.load_image_cv_compat(file_path)
             if(self.metallic_img is not None):
                 self.load_metallic_btn.setText("Metallic Loaded ✅")
                 self.load_metallic_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
@@ -192,12 +224,40 @@ class ImageLoaderApp(QWidget):
 
     def load_displacement(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Open Displacement", "", self.image_formats)
-        if file_name:
-            self.displacement_img = self.load_image_cv_compat(file_name)
+        self.gen_displacement(file_name)
+
+    def gen_displacement(self,file_path):
+        if file_path:
+            self.displacement_img = self.load_image_cv_compat(file_path)
             if(self.displacement_img is not None):
                 self.load_displacement_btn.setText("Displacement Loaded ✅")
                 self.load_displacement_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
                 print("Displacement loaded.")
+    
+    def load_orm(self):
+        file_name, _ = QFileDialog.getOpenFileName(self, "Load ORM", "", self.image_formats)
+        self.gen_orm(file_name)
+
+    def gen_orm(self, file_path):
+        if file_path:
+            self.orm_img = self.load_image_cv_compat(file_path)
+            if self.orm_img is not None:
+                r, g, b = cv2.split(self.orm_img)
+                
+                self.ao_img = cv2.merge([r, r, r])         # AO no canal R
+                self.roughness_img = cv2.merge([g, g, g])  # Roughness no canal G
+                self.metallic_img = cv2.merge([b, b, b])   # Metallic no canal B
+                
+                self.load_metallic_btn.setText("Metallic Loaded ✅")
+                self.load_metallic_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
+
+                self.load_roughness_btn.setText("Roughness Loaded ✅")
+                self.load_roughness_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
+
+                self.load_ao_btn.setText("AO Loaded ✅")
+                self.load_ao_btn.setStyleSheet("background-color: lightgreen; font-weight: bold; color: darkgreen;")
+
+                print("ORM loaded and splited with success.")
 
     def remove_diffuse(self):
         self.diffuse_img = None  # Remove a imagem do QLabel
@@ -234,6 +294,15 @@ class ImageLoaderApp(QWidget):
         self.load_displacement_btn.setText("Load Displacement")
         self.load_displacement_btn.setStyleSheet("color: black; font-weight: regular;")
 
+    def remove_all(self):
+        self.remove_diffuse()
+        self.remove_ao()
+        self.remove_normal()
+        self.remove_roughness()
+        self.remove_metallic()
+        self.remove_displacement()
+        self.remove_opacity()
+
     def generate_albedo(self,base_path):
         if self.diffuse_img is not None:
             albedo = self.diffuse_img.copy()
@@ -256,7 +325,7 @@ class ImageLoaderApp(QWidget):
 
         albedo_rgba = cv2.merge((albedo, alpha))
         cv2.imwrite(base_path + "_albedo.tiff", albedo_rgba)
-        print("Albedo salvo.")
+        print("Albedo saved.")
 
     def generate_specular(self, base_path):
         if self.diffuse_img is not None and self.metallic_img is not None:
@@ -273,9 +342,9 @@ class ImageLoaderApp(QWidget):
             specular = np.clip(specular * 255, 0, 255).astype(np.uint8)
 
             cv2.imwrite(base_path + "_spec.tiff", specular)
-            print("Specular gerado com base em metallic.")
+            print("Specular generation based on metallic.")
         else:
-            print("Diffuse ou Metallic não carregados.")
+            print("Diffuse or Metallic not loaded.")
 
 
     def generate_normal(self,base_path):
@@ -291,23 +360,50 @@ class ImageLoaderApp(QWidget):
                     gloss = cv2.resize(gloss, (normal.shape[1], normal.shape[0]))
                 ddna = cv2.merge((normal, gloss))
                 cv2.imwrite(base_path + "_ddna.tiff", ddna)
-                print("Normal + Gloss (_ddna) salvo.")
+                print("Normal + Gloss (_ddna) saved.")
             else:
                 cv2.imwrite(base_path + "_ddn.tiff", normal)
-                print("Normal (_ddn) salvo.")
+                print("Normal (_ddn) saved.")
 
     def generate_displacement(self,base_path):
         if self.displacement_img is not None:
             cv2.imwrite(base_path + "_displ.tiff", self.displacement_img)
-            print("Displacement salvo.")
+            print("Displacement saved.")
+
+    def auto_load_from_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Selectec Folder")
+        if not folder:
+            return
+
+        suffix_map = {
+            "_D": self.gen_albedo,
+            "_AO": self.gen_ao,
+            "_M": self.gen_metallic,
+            "_R": self.gen_roughness,
+            "_N": self.gen_normal,
+            "_H": self.gen_displacement,
+            "_O": self.gen_opacity,
+            "_ORM": self.gen_orm,
+        }
+
+        for file in os.listdir(folder):
+            full_path = os.path.join(folder, file)
+            name, ext = os.path.splitext(file)
+            if ext.lower() not in [".png", ".jpg", ".jpeg", ".tiff", ".tga"]:
+                continue
+
+            for suffix, func in suffix_map.items():
+                if name.endswith(suffix):
+                    print(f"Loaded: {file} with: {func.__name__}")
+                    func(full_path)
+                    break
 
     def generate_output(self):       
-        save_path, _ = QFileDialog.getSaveFileName(self, "Salvar Texturas", "", "")
+        save_path, _ = QFileDialog.getSaveFileName(self, "Save Textures", "", "")
         if not save_path:
             return
 
-        import os
-
+        
         base_path = os.path.splitext(save_path)[0]  # remove .png do final, se tiver
 
         self.generate_albedo(save_path)    
